@@ -1,0 +1,205 @@
+name: Release Excel AI Add-in
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version override'
+        required: false
+        type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+  push:
+    tags:
+      - 'v*'
+
+env:
+  NODE_VERSION: '18.x'
+  PYTHON_VERSION: '3.11'
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  validate_release:
+    name: Validate Release Prerequisites
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Verify build status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: workflows } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build.yml',
+              branch: context.ref,
+              status: 'completed',
+              per_page: 1
+            });
+            
+            if (!workflows.workflow_runs.length || workflows.workflow_runs[0].conclusion !== 'success') {
+              core.setFailed('Latest build must be successful');
+            }
+
+      - name: Verify security scan
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: scans } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'security-scan.yml',
+              branch: context.ref,
+              status: 'completed',
+              per_page: 1
+            });
+            
+            if (!scans.workflow_runs.length || scans.workflow_runs[0].conclusion !== 'success') {
+              core.setFailed('Security scan must pass');
+            }
+
+  prepare_release:
+    name: Prepare Release
+    needs: validate_release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+      changelog: ${{ steps.semantic.outputs.new_release_notes }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Generate release version
+        id: semantic
+        uses: semantic-release/semantic-release@v19.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        with:
+          branches: ['main']
+          plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/changelog
+            @semantic-release/npm
+            @semantic-release/github
+
+      - name: Update version in package files
+        if: steps.semantic.outputs.new_release_version != ''
+        run: |
+          for pkg in src/web/package.json src/backend/package.json src/backend/services/*/package.json; do
+            if [ -f "$pkg" ]; then
+              jq ".version = \"${{ steps.semantic.outputs.new_release_version }}\"" "$pkg" > tmp.json && mv tmp.json "$pkg"
+            fi
+          done
+
+  create_release:
+    name: Create GitHub Release
+    needs: prepare_release
+    runs-on: ubuntu-latest
+    if: needs.prepare_release.outputs.version != ''
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.prepare_release.outputs.version }}
+          release_name: Release v${{ needs.prepare_release.outputs.version }}
+          body: ${{ needs.prepare_release.outputs.changelog }}
+          draft: false
+          prerelease: false
+
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: |
+            dist/*.js
+            manifest.xml
+            CHANGELOG.md
+            docs/*
+            deployment/*
+          asset_content_type: application/octet-stream
+
+  trigger_deployment:
+    name: Trigger Deployment
+    needs: [prepare_release, create_release]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger deployment workflow
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: 'main',
+              inputs: {
+                version: '${{ needs.prepare_release.outputs.version }}',
+                environment: 'production'
+              }
+            });
+
+  notify_release:
+    name: Send Release Notifications
+    needs: [prepare_release, create_release, trigger_deployment]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify release status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ needs.prepare_release.outputs.version }}';
+            const status = context.job.status.toLowerCase();
+            const message = `Release v${version} ${status}`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            });
