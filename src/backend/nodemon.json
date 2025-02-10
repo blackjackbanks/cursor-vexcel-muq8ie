@@ -1,0 +1,25 @@
+{
+  "watch": [
+    "services/*/src/**/*.ts",
+    "services/shared/**/*.ts"
+  ],
+  "ext": ".ts,.js,.json",
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "node_modules",
+    "dist"
+  ],
+  "exec": "ts-node",
+  "delay": 2000,
+  "verbose": true,
+  "env": {
+    "NODE_ENV": "development",
+    "TS_NODE_PROJECT": "./tsconfig.json"
+  },
+  "execMap": {
+    "ts": "ts-node"
+  },
+  "legacyWatch": false,
+  "restartable": "rs"
+}
