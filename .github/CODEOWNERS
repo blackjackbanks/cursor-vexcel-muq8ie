@@ -1,0 +1,62 @@
+# AI-enhanced Excel Add-in CODEOWNERS file
+# This file defines code ownership and required reviewers for different components
+# Format: path/to/code team-or-username1 team-or-username2
+
+# Root level changes require project leads and architecture team review
+* @project-leads @architecture-team
+
+# Frontend components require UI, frontend, and accessibility team review
+/src/web/* @frontend-team @ui-experts @accessibility-team
+
+# AI service components require AI, ML, and security team review
+/src/backend/services/ai/* @ai-team @ml-experts @security-team
+
+# Core service components require backend, core service, and performance team review
+/src/backend/services/core/* @backend-team @core-service-owners @performance-team
+
+# Data service components require data, database, and security team review
+/src/backend/services/data/* @data-team @database-experts @security-team
+
+# API Gateway components require backend, security, and API team review
+/src/backend/services/gateway/* @backend-team @security-team @api-experts
+
+# Test files require QA and respective team review
+*.test.ts @qa-team @test-automation-experts
+*.test.tsx @qa-team @frontend-team
+
+# Infrastructure changes require DevOps, security, and cloud expert review
+/infrastructure/* @devops-team @security-team @cloud-experts
+
+# CI/CD workflow changes require DevOps and security team review
+/.github/workflows/* @devops-team @security-team
+
+# Shared utilities require backend, architecture, and security team review
+/src/backend/services/shared/* @backend-team @architecture-team @security-team
+
+# Dependency management requires security, dependency, and architecture team review
+package.json @security-team @dependency-managers @architecture-team
+requirements.txt @security-team @dependency-managers @ai-team
+
+# Configuration and interface files require architecture team review
+*.config.ts @architecture-team @security-team
+*.interface.ts @architecture-team @type-system-experts
+
+# Documentation changes require technical writers and respective team review
+/docs/* @technical-writers @architecture-team
+
+# Security-sensitive configurations require mandatory security team review
+/src/backend/config/security/* @security-team @architecture-team
+/src/backend/auth/* @security-team @backend-team
+/infrastructure/security/* @security-team @devops-team
+
+# Excel Add-in specific components require Office integration experts
+/src/office/* @office-integration-team @frontend-team @accessibility-team
+
+# Database migrations require careful review from data and security teams
+/src/backend/migrations/* @data-team @database-experts @security-team
+
+# Shared type definitions require type system experts
+/src/types/* @type-system-experts @architecture-team
+
+# API specifications require API experts and security review
+/api-specs/* @api-experts @security-team @architecture-team
