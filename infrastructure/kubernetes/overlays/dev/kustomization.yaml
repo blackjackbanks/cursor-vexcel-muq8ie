@@ -1,0 +1,74 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base resources to be customized
+resources:
+  - ../../base/namespace.yaml
+  - ../../base/configmap.yaml
+  - ../../services/ai-service.yaml
+  - ../../services/core-service.yaml
+  - ../../services/data-service.yaml
+  - ../../services/gateway-service.yaml
+
+# Development-specific patches for resource optimization
+patches:
+  # AI Service development configuration
+  - target:
+      kind: Deployment
+      name: ai-service
+    patch:
+      spec:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: ai-service
+                resources:
+                  requests:
+                    cpu: "250m"
+                    memory: "512Mi"
+                  limits:
+                    cpu: "500m"
+                    memory: "1Gi"
+
+# ConfigMap generators for development environment
+configMapGenerator:
+  # AI Service configuration
+  - name: ai-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - RATE_LIMIT_PER_MIN=200
+      - DEBUG_MODE=true
+      - TRACE_REQUESTS=true
+
+  # Core Service configuration
+  - name: core-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - API_TIMEOUT_MS=10000
+      - DEBUG_MODE=true
+      - REQUEST_TRACING=enabled
+
+  # Data Service configuration
+  - name: data-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - DB_CONNECTION_POOL_SIZE=5
+      - DEBUG_MODE=true
+      - QUERY_LOGGING=enabled
+
+  # Gateway Service configuration
+  - name: gateway-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - RATE_LIMIT_WINDOW_MS=120000
+      - DEBUG_MODE=true
+      - REQUEST_LOGGING=verbose
