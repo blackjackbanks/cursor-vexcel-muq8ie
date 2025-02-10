@@ -1,0 +1,74 @@
+---
+# Premium Storage Class for critical data components
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azure-premium-storage
+  labels:
+    app: excel-addin
+    type: premium
+    tier: critical
+provisioner: kubernetes.io/azure-disk
+reclaimPolicy: Retain
+parameters:
+  storageaccounttype: Premium_LRS
+  kind: Managed
+  cachingmode: ReadOnly
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+# Standard Storage Class for general purpose storage
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azure-standard-storage
+  labels:
+    app: excel-addin
+    type: standard
+    tier: general
+provisioner: kubernetes.io/azure-disk
+reclaimPolicy: Delete
+parameters:
+  storageaccounttype: Standard_LRS
+  kind: Managed
+  cachingmode: ReadWrite
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+---
+# Persistent Volume Claim for SQL Database
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sql-data-pvc
+  namespace: data-service
+  labels:
+    app: excel-addin
+    component: database
+    tier: critical
+  annotations:
+    backup.velero.io/backup-volumes: sql-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: azure-premium-storage
+  resources:
+    requests:
+      storage: 100Gi
+---
+# Persistent Volume Claim for Redis Cache
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-pvc
+  namespace: data-service
+  labels:
+    app: excel-addin
+    component: cache
+    tier: general
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: azure-standard-storage
+  resources:
+    requests:
+      storage: 20Gi
