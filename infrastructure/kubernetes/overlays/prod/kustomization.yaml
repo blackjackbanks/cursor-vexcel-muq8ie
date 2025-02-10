@@ -1,0 +1,98 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base resources to be customized
+resources:
+  - ../../base/namespace.yaml
+  - ../../base/configmap.yaml
+  - ../../base/network-policy.yaml
+  - ../../base/service-accounts.yaml
+  - ../../base/rbac.yaml
+  - ../../base/quotas.yaml
+  - ../../base/limits.yaml
+  - ../../base/monitoring.yaml
+  - ../../services/ai-service.yaml
+  - ../../services/core-service.yaml
+  - ../../services/data-service.yaml
+  - ../../services/gateway-service.yaml
+
+# Production-specific patches for each service
+patches:
+  - path: patches/ai-service-prod.yaml
+    target:
+      kind: Deployment
+      name: ai-service
+  - path: patches/core-service-prod.yaml
+    target:
+      kind: Deployment
+      name: core-service
+  - path: patches/data-service-prod.yaml
+    target:
+      kind: Deployment
+      name: data-service
+  - path: patches/gateway-service-prod.yaml
+    target:
+      kind: Deployment
+      name: gateway-service
+
+# Production environment configuration overrides
+configMapGenerator:
+  - name: ai-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - RATE_LIMIT_PER_MIN=100
+      - GPU_MEMORY_LIMIT=8Gi
+      - MODEL_CACHE_SIZE=4Gi
+      - MAX_CONCURRENT_REQUESTS=50
+  
+  - name: core-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - API_TIMEOUT_MS=5000
+      - MAX_PAYLOAD_SIZE=10mb
+      - CIRCUIT_BREAKER_TIMEOUT=10000
+      - RETRY_ATTEMPTS=3
+  
+  - name: data-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - CACHE_TTL_SECONDS=300
+      - DB_POOL_SIZE=20
+      - DB_IDLE_TIMEOUT_MS=10000
+      - BATCH_SIZE=1000
+  
+  - name: gateway-service-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - RATE_LIMIT_WINDOW_MS=60000
+      - MAX_CONCURRENT_CONNECTIONS=1000
+      - SSL_ENABLED=true
+      - CORS_MAX_AGE=86400
+
+# Production namespace
+namespace: prod
+
+# Common labels for all resources
+commonLabels:
+  environment: production
+  app: excel-addin
+  version: 1.0.0
+  tier: production
+  managed-by: kustomize
+
+# Common annotations for all resources
+commonAnnotations:
+  maintainer: DevOps
+  environment: production
+  deployment.kubernetes.io/revision: "1"
+  prometheus.io/scrape: "true"
+  prometheus.io/port: metrics
+  security.policy/compliance: strict
