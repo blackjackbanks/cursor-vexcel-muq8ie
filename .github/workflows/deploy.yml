@@ -1,0 +1,294 @@
+name: Deploy Excel AI Add-in
+
+on:
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment for deployment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '18.x'
+  PYTHON_VERSION: '3.11'
+  AZURE_REGION: 'eastus'
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  DEPLOY_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare_deployment:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+    
+    steps:
+      - name: Set deployment environment
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+  validate_prerequisites:
+    name: Validate Prerequisites
+    needs: prepare_deployment
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check build status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const buildWorkflow = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId
+            });
+            if (buildWorkflow.data.conclusion !== 'success') {
+              core.setFailed('Build workflow must complete successfully');
+            }
+
+      - name: Verify security scan
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const securityWorkflow = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'security-scan.yml',
+              branch: context.ref
+            });
+            if (securityWorkflow.data.conclusion !== 'success') {
+              core.setFailed('Security scan must pass');
+            }
+
+  deploy_staging:
+    name: Deploy to Staging
+    needs: [prepare_deployment, validate_prerequisites]
+    if: needs.prepare_deployment.outputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: excel-ai-staging-rg
+          cluster-name: excel-ai-staging-aks
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.11.2'
+
+      - name: Deploy Blue environment
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: staging
+          manifests: |
+            kubernetes/staging/
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/excel-ai/frontend:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/excel-ai/backend:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/excel-ai/ai-service:${{ github.sha }}
+          strategy: blue-green
+          timeout: 10m
+
+      - name: Validate Blue deployment
+        run: |
+          chmod +x ./scripts/validate-deployment.sh
+          ./scripts/validate-deployment.sh \
+            --environment staging \
+            --deployment blue \
+            --timeout 300
+
+      - name: Switch traffic to Blue
+        if: success()
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: staging
+          strategy: blue-green
+          action: promote
+          timeout: 5m
+
+      - name: Cleanup Green deployment
+        if: success()
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: staging
+          strategy: blue-green
+          action: reject
+          timeout: 5m
+
+  deploy_production:
+    name: Deploy to Production
+    needs: [prepare_deployment, validate_prerequisites]
+    if: needs.prepare_deployment.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: excel-ai-prod-rg
+          cluster-name: excel-ai-prod-aks
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.11.2'
+
+      - name: Deploy Canary (10% traffic)
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: production
+          manifests: |
+            kubernetes/production/
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/excel-ai/frontend:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/excel-ai/backend:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/excel-ai/ai-service:${{ github.sha }}
+          strategy: canary
+          percentage: 10
+          timeout: 10m
+
+      - name: Validate Canary deployment
+        run: |
+          chmod +x ./scripts/validate-deployment.sh
+          ./scripts/validate-deployment.sh \
+            --environment production \
+            --deployment canary \
+            --timeout 300
+
+      - name: Increase Canary traffic (30%)
+        if: success()
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: production
+          strategy: canary
+          percentage: 30
+          timeout: 10m
+
+      - name: Validate 30% deployment
+        run: |
+          ./scripts/validate-deployment.sh \
+            --environment production \
+            --deployment canary \
+            --timeout 300
+
+      - name: Increase Canary traffic (50%)
+        if: success()
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: production
+          strategy: canary
+          percentage: 50
+          timeout: 10m
+
+      - name: Validate 50% deployment
+        run: |
+          ./scripts/validate-deployment.sh \
+            --environment production \
+            --deployment canary \
+            --timeout 300
+
+      - name: Complete Canary rollout (100%)
+        if: success()
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: production
+          strategy: canary
+          percentage: 100
+          timeout: 10m
+
+      - name: Validate full deployment
+        run: |
+          ./scripts/validate-deployment.sh \
+            --environment production \
+            --deployment canary \
+            --timeout 300
+
+  notify_deployment:
+    name: Send Deployment Notifications
+    needs: [deploy_staging, deploy_production]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Notify deployment status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const status = context.job.status;
+            const environment = '${{ needs.prepare_deployment.outputs.environment }}';
+            const message = `Deployment to ${environment} ${status.toLowerCase()}`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            });
+
+  rollback_on_failure:
+    name: Rollback Failed Deployment
+    needs: [deploy_staging, deploy_production]
+    if: failure()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: excel-ai-${{ needs.prepare_deployment.outputs.environment }}-rg
+          cluster-name: excel-ai-${{ needs.prepare_deployment.outputs.environment }}-aks
+
+      - name: Perform rollback
+        run: |
+          chmod +x ./scripts/rollback.sh
+          ./scripts/rollback.sh \
+            --environment ${{ needs.prepare_deployment.outputs.environment }} \
+            --version ${{ github.event.before }}
