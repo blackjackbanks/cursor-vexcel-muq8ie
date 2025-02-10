@@ -1,0 +1,59 @@
+apiVersion: v2
+name: gateway-service
+description: API Gateway service for the AI-enhanced Excel Add-in that provides centralized request routing, authentication, rate limiting, and service orchestration for microservices. Implements comprehensive security controls and high availability deployment patterns.
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+# Keywords for chart discovery and categorization
+keywords:
+  - api-gateway
+  - excel-addin
+  - microservices
+  - oauth2
+  - rate-limiting
+  - security
+
+# Maintainer information
+maintainers:
+  - name: Excel AI Team
+    email: excelai-team@company.com
+
+# Chart dependencies
+dependencies:
+  - name: common
+    version: 1.0.0
+    repository: file://../common
+  - name: redis
+    version: 17.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+    tags:
+      - cache
+      - rate-limiting
+  - name: cert-manager
+    version: 1.x.x
+    repository: https://charts.jetstack.io
+    condition: certManager.enabled
+    tags:
+      - security
+      - tls
+
+# Annotations for additional metadata
+annotations:
+  category: Application
+  licenses: Apache-2.0
+  artifacthub.io/containsSecurityUpdates: "true"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/signKey: |
+    fingerprint: 51F8F696E26B784E27BAFD9B054C06086AFCA56A
+    url: https://keybase.io/excelai/pgp_keys.asc
+
+# Home URL for documentation
+home: https://github.com/excel-ai/gateway-service
+
+# Additional chart information
+sources:
+  - https://github.com/excel-ai/gateway-service
+kubeVersion: ">=1.21.0-0"
+icon: https://excel-ai.com/icons/gateway.png
