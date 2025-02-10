@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="theme-color" content="#ffffff">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="description" content="AI-enhanced Excel Add-in for intelligent formula suggestions and data management">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+    
+    <title>AI Excel Assistant</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="assets/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/icon-16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/icons/icon-64.png">
+    <link rel="icon" type="image/png" sizes="80x80" href="assets/icons/icon-80.png">
+
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://appsforoffice.microsoft.com">
+    <link rel="preconnect" href="https://static2.sharepointonline.com">
+
+    <!-- Office UI Fabric Core v11.0.0 -->
+    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-core/11.0.0/css/fabric.min.css">
+
+    <!-- Office.js v1.1 -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+
+    <script type="text/javascript">
+        // Initialize Office.js when Excel is ready
+        Office.onReady((info) => {
+            if (info.host === Office.HostType.Excel) {
+                // Bootstrap React application once Office.js is initialized
+                if (process.env.NODE_ENV !== 'production') {
+                    console.log('Excel Add-in initialized in development mode');
+                }
+            }
+        });
+    </script>
+</head>
+
+<body class="ms-Fabric">
+    <!-- Main application container with ARIA attributes for accessibility -->
+    <main id="root" role="main" aria-label="AI Excel Assistant">
+        <!-- Application content will be injected here by React -->
+    </main>
+
+    <noscript>
+        <div class="ms-MessageBar ms-MessageBar--error">
+            <div class="ms-MessageBar-content">
+                <div class="ms-MessageBar-text">
+                    You need to enable JavaScript to run this app.
+                </div>
+            </div>
+        </div>
+    </noscript>
+
+    <!-- Error boundary for graceful error handling -->
+    <div id="error-container" role="alert" aria-live="assertive" style="display: none;">
+        <!-- Runtime errors will be displayed here -->
+    </div>
+</body>
+</html>
