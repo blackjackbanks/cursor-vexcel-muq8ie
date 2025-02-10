@@ -1,0 +1,121 @@
+# Network policies for Excel Add-in microservices
+# Implements zero-trust security model with explicit allow rules
+# Version: networking.k8s.io/v1
+
+---
+# Default deny all ingress traffic to establish zero-trust baseline
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+  namespace: ${namespace}
+  labels:
+    app: excel-addin
+    type: security
+    policy: default-deny
+spec:
+  podSelector: {}  # Applies to all pods in namespace
+  policyTypes:
+    - Ingress
+
+---
+# Allow HTTP API traffic from API Gateway to Core Service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-to-core
+  namespace: core-service
+  labels:
+    app: excel-addin
+    type: security
+    policy: service-communication
+spec:
+  podSelector:
+    matchLabels:
+      app: excel-addin
+      service: core
+      component: api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app: excel-addin
+              component: gateway
+          podSelector:
+            matchLabels:
+              app: excel-addin
+              service: gateway
+      ports:
+        - protocol: TCP
+          port: 3000
+          name: http-api
+
+---
+# Allow gRPC traffic from Core Service to AI Service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-core-to-ai
+  namespace: ai-service
+  labels:
+    app: excel-addin
+    type: security
+    policy: service-communication
+spec:
+  podSelector:
+    matchLabels:
+      app: excel-addin
+      component: ai
+      service: inference
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app: excel-addin
+              component: core
+          podSelector:
+            matchLabels:
+              app: excel-addin
+              service: core
+      ports:
+        - protocol: TCP
+          port: 8000
+          name: grpc-api
+
+---
+# Allow HTTP API traffic from Core Service to Data Service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-core-to-data
+  namespace: data-service
+  labels:
+    app: excel-addin
+    type: security
+    policy: service-communication
+spec:
+  podSelector:
+    matchLabels:
+      app: excel-addin
+      component: data
+      service: storage
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app: excel-addin
+              component: core
+          podSelector:
+            matchLabels:
+              app: excel-addin
+              service: core
+      ports:
+        - protocol: TCP
+          port: 3000
+          name: http-api
