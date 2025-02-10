@@ -1,0 +1,45 @@
+apiVersion: v2
+type: application
+name: ai-service
+description: High-performance AI service for Excel formula generation and optimization with GPU acceleration, supporting multi-region deployment and sub-2 second response times
+version: 1.0.0
+appVersion: 1.0.0
+kubeVersion: ">=1.25.0-0"
+
+keywords:
+  - ai
+  - excel
+  - formula
+  - openai
+  - gpu
+  - fastapi
+  - python
+  - high-performance
+  - multi-region
+
+maintainers:
+  - name: AI Excel Team
+    email: ai-excel-team@company.com
+
+# Dependencies required for the AI service
+dependencies:
+  # Redis for high-performance caching to meet <2s response time requirement
+  - name: redis
+    version: 17.0.0
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+    tags:
+      - cache
+      - performance
+
+  # Prometheus for GPU utilization and performance monitoring
+  - name: prometheus
+    version: 19.0.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: monitoring.enabled
+    tags:
+      - monitoring
+      - metrics
+
+# Template engine specification
+engine: gotpl
