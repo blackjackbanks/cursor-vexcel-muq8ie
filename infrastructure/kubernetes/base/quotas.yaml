@@ -1,0 +1,76 @@
+---
+# AI Service Namespace Quota
+# Higher resource limits to maintain 2-second response time SLA for AI suggestions
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ai-service-quota
+  namespace: ai-service
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"
+    pods: "10"
+    services: "5"
+    configmaps: "10"
+    secrets: "10"
+    persistentvolumeclaims: "5"
+---
+# Core Service Namespace Quota
+# Balanced resources for business logic and orchestration
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: core-service-quota
+  namespace: core-service
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
+    pods: "8"
+    services: "4"
+    configmaps: "8"
+    secrets: "8"
+    persistentvolumeclaims: "3"
+---
+# Data Service Namespace Quota
+# Optimized for data processing and storage operations
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: data-service-quota
+  namespace: data-service
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
+    pods: "8"
+    services: "4"
+    configmaps: "8"
+    secrets: "8"
+    persistentvolumeclaims: "5"
+---
+# Gateway Service Namespace Quota
+# Lightweight resources for API routing and load balancing
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gateway-service-quota
+  namespace: gateway-service
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: "2Gi"
+    limits.cpu: "2"
+    limits.memory: "4Gi"
+    pods: "5"
+    services: "3"
+    configmaps: "5"
+    secrets: "5"
+    persistentvolumeclaims: "2"
