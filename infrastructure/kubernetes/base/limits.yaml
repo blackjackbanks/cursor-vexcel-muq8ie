@@ -1,0 +1,99 @@
+# Kubernetes LimitRange configuration for Excel Add-in microservices
+# Defines container and pod level resource constraints to ensure optimal performance
+# Version: v1
+
+---
+# AI Service Limits
+# Higher resource limits due to GPU and ML processing requirements
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ai-service-limits
+  namespace: ai-service
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"      # 0.5 CPU cores default allocation
+        memory: "512Mi"  # 512MB default memory allocation
+      defaultRequest:
+        cpu: "250m"      # 0.25 CPU cores minimum requested
+        memory: "256Mi"  # 256MB minimum memory requested
+      max:
+        cpu: "2"         # Max 2 CPU cores per container
+        memory: "4Gi"    # Max 4GB memory per container
+      min:
+        cpu: "100m"      # Min 0.1 CPU cores per container
+        memory: "128Mi"  # Min 128MB memory per container
+
+---
+# Core Service Limits
+# Balanced resources for business logic processing
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: core-service-limits
+  namespace: core-service
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "300m"      # 0.3 CPU cores default allocation
+        memory: "256Mi"  # 256MB default memory allocation
+      defaultRequest:
+        cpu: "150m"      # 0.15 CPU cores minimum requested
+        memory: "128Mi"  # 128MB minimum memory requested
+      max:
+        cpu: "1"         # Max 1 CPU core per container
+        memory: "2Gi"    # Max 2GB memory per container
+      min:
+        cpu: "100m"      # Min 0.1 CPU cores per container
+        memory: "64Mi"   # Min 64MB memory per container
+
+---
+# Data Service Limits
+# Higher memory allocation for data processing
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: data-service-limits
+  namespace: data-service
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "300m"      # 0.3 CPU cores default allocation
+        memory: "512Mi"  # 512MB default memory allocation
+      defaultRequest:
+        cpu: "150m"      # 0.15 CPU cores minimum requested
+        memory: "256Mi"  # 256MB minimum memory requested
+      max:
+        cpu: "1"         # Max 1 CPU core per container
+        memory: "2Gi"    # Max 2GB memory per container
+      min:
+        cpu: "100m"      # Min 0.1 CPU cores per container
+        memory: "128Mi"  # Min 128MB memory per container
+
+---
+# Gateway Service Limits
+# Lower resource limits for routing layer
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: gateway-service-limits
+  namespace: gateway-service
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "200m"      # 0.2 CPU cores default allocation
+        memory: "256Mi"  # 256MB default memory allocation
+      defaultRequest:
+        cpu: "100m"      # 0.1 CPU cores minimum requested
+        memory: "128Mi"  # 128MB minimum memory requested
+      max:
+        cpu: "500m"      # Max 0.5 CPU cores per container
+        memory: "1Gi"    # Max 1GB memory per container
+      min:
+        cpu: "50m"       # Min 0.05 CPU cores per container
+        memory: "64Mi"   # Min 64MB memory per container
