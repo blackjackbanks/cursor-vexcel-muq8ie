@@ -1,0 +1,39 @@
+build/**/*
+dist/**/*
+coverage/**/*
+
+# Dependencies
+node_modules/**/*
+
+# Static assets
+public/**/*
+manifest/**/*
+polyfills/**/*
+
+# Configuration files
+*.config.js
+*.config.ts
+babel.config.js
+webpack.config.ts
+jest.setup.ts
+jest.config.ts
+
+# Type definitions
+*.d.ts
+
+# Generated files
+**/*.min.js
+**/*.bundle.js
+**/*.generated.ts
+
+# Test files
+**/__mocks__/**/*
+
+# Third party code
+**/vendor/**/*
+
+# IDE files
+.vscode/**/*
+
+# Temporary files
+temp/**/*
