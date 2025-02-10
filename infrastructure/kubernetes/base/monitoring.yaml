@@ -1,0 +1,317 @@
+---
+# Monitoring Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    security-tier: critical
+    environment: ${ENV}
+    version: ${VERSION}
+    managed-by: kubernetes
+
+---
+# Prometheus Operator CRD
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: excel-addin-prometheus
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+spec:
+  version: ${PROMETHEUS_VERSION}
+  serviceAccountName: monitoring-service-account
+  replicas: 2
+  retention: ${RETENTION_PERIOD}
+  securityContext:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: managed-premium
+        resources:
+          requests:
+            storage: 100Gi
+  serviceMonitorSelector:
+    matchLabels:
+      app: excel-addin
+  ruleSelector:
+    matchLabels:
+      app: excel-addin
+      role: alert-rules
+  alerting:
+    alertmanagers:
+      - namespace: monitoring
+        name: alertmanager
+        port: web
+
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    service: grafana
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: excel-addin
+      service: grafana
+  template:
+    metadata:
+      labels:
+        app: excel-addin
+        service: grafana
+    spec:
+      serviceAccountName: monitoring-service-account
+      securityContext:
+        fsGroup: 472
+        supplementalGroups:
+          - 0
+      containers:
+        - name: grafana
+          image: grafana/grafana:${GRAFANA_VERSION}
+          ports:
+            - containerPort: 3000
+              name: http
+          volumeMounts:
+            - name: grafana-config
+              mountPath: /etc/grafana/grafana.ini
+              subPath: grafana.ini
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-credentials
+                  key: admin-password
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            runAsUser: 472
+            runAsGroup: 472
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: grafana-config
+          configMap:
+            name: monitoring-config
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: grafana-storage
+
+---
+# AlertManager Configuration
+apiVersion: monitoring.coreos.com/v1
+kind: Alertmanager
+metadata:
+  name: excel-addin-alertmanager
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+spec:
+  version: ${ALERTMANAGER_VERSION}
+  replicas: 2
+  serviceAccountName: monitoring-service-account
+  securityContext:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  configSecret: alertmanager-config
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: managed-premium
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# Azure Monitor Integration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-monitor-metrics-adapter
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    service: azure-monitor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: excel-addin
+      service: azure-monitor
+  template:
+    metadata:
+      labels:
+        app: excel-addin
+        service: azure-monitor
+    spec:
+      serviceAccountName: monitoring-service-account
+      containers:
+        - name: azure-monitor-metrics-adapter
+          image: mcr.microsoft.com/k8s/metrics/adapter:${AZURE_MONITOR_VERSION}
+          args:
+            - --secure-port=6443
+            - --logtostderr=true
+            - --v=2
+          ports:
+            - containerPort: 6443
+              name: https
+          volumeMounts:
+            - name: azure-config
+              mountPath: /etc/kubernetes/azure.json
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+      volumes:
+        - name: azure-config
+          hostPath:
+            path: /etc/kubernetes/azure.json
+            type: File
+
+---
+# Monitoring ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: ${SCRAPE_INTERVAL}
+      evaluation_interval: ${SCRAPE_INTERVAL}
+      external_labels:
+        environment: ${ENV}
+        region: ${REGION}
+        
+    scrape_configs:
+      - job_name: 'excel-addin-metrics'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['excel-addin']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'formula_generation_duration_seconds'
+            action: keep
+          - source_labels: [__name__]
+            regex: 'memory_usage_bytes'
+            action: keep
+          - source_labels: [__name__]
+            regex: 'cpu_usage_percent'
+            action: keep
+
+      - job_name: 'security-metrics'
+        kubernetes_sd_configs:
+          - role: pod
+        metrics_path: /security-metrics
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+  grafana.ini: |
+    [server]
+    root_url = %(protocol)s://%(domain)s/grafana
+    serve_from_sub_path = true
+
+    [auth]
+    disable_login_form = false
+    oauth_auto_login = true
+
+    [auth.azure]
+    enabled = true
+    client_id = ${AZURE_CLIENT_ID}
+    client_secret = ${AZURE_CLIENT_SECRET}
+    scopes = openid email profile
+    auth_url = https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize
+    token_url = https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+
+    [security]
+    admin_user = ${GRAFANA_ADMIN_USER}
+    admin_password = ${GRAFANA_ADMIN_PASSWORD}
+    cookie_secure = true
+    cookie_samesite = strict
+    disable_gravatar = true
+    strict_transport_security = true
+
+    [azure_monitor]
+    managed_identity_enabled = true
+    managed_identity_client_id = ${AZURE_MANAGED_IDENTITY_CLIENT_ID}
+
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+      slack_api_url: ${SLACK_API_URL}
+
+    route:
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: default-receiver
+      routes:
+        - match:
+            severity: critical
+          receiver: pager-duty-critical
+        - match:
+            type: security
+          receiver: security-team
+
+    receivers:
+      - name: default-receiver
+        slack_configs:
+          - channel: '#monitoring-alerts'
+            send_resolved: true
+
+      - name: pager-duty-critical
+        pagerduty_configs:
+          - service_key: ${PAGERDUTY_SERVICE_KEY}
+            severity: critical
+
+      - name: security-team
+        email_configs:
+          - to: security-team@company.com
+            send_resolved: true
+        slack_configs:
+          - channel: '#security-alerts'
+            send_resolved: true
