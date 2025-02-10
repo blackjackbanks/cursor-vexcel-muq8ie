@@ -1,0 +1,235 @@
+---
+# Prometheus Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    service: prometheus
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: monitoring-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 2000
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.44.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=15d
+            - --storage.tsdb.retention.size=50GB
+            - --web.enable-lifecycle
+            - --web.enable-admin-api
+          ports:
+            - containerPort: 9090
+              name: http
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
+            - name: tls
+              mountPath: /etc/tls
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: prometheus-storage
+        - name: tls
+          secret:
+            secretName: prometheus-tls
+
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    service: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: http
+  selector:
+    app: prometheus
+
+---
+# Prometheus Rules ConfigMap
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: excel-addin-rules
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    role: alert-rules
+spec:
+  groups:
+    - name: ai-service
+      rules:
+        - alert: HighLatency
+          expr: formula_generation_latency > 2
+          for: 5m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            description: "AI service formula generation latency is above 2 seconds"
+            runbook_url: "https://wiki/runbooks/high-latency"
+        
+        - alert: HighMemoryUsage
+          expr: container_memory_usage_bytes{container='ai-service'} > 512 * 1024 * 1024
+          for: 10m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            description: "AI service memory usage above 512MB threshold"
+        
+        - alert: HighCPUUsage
+          expr: rate(container_cpu_usage_seconds_total{container='ai-service'}[5m]) > 0.3
+          for: 10m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            description: "AI service CPU usage above 30%"
+
+    - name: security-monitoring
+      rules:
+        - alert: AuthenticationFailure
+          expr: rate(authentication_failures_total[5m]) > 10
+          for: 5m
+          labels:
+            severity: critical
+            type: security
+          annotations:
+            description: "High rate of authentication failures detected"
+        
+        - alert: UnauthorizedAccess
+          expr: rate(unauthorized_access_attempts_total[5m]) > 5
+          for: 5m
+          labels:
+            severity: critical
+            type: security
+          annotations:
+            description: "Multiple unauthorized access attempts detected"
+
+---
+# Prometheus Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      scrape_timeout: 10s
+      external_labels:
+        cluster: excel-addin
+        environment: production
+
+    rule_files:
+      - /etc/prometheus/rules/*.yaml
+
+    scrape_configs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+
+      - job_name: 'excel-addin-services'
+        kubernetes_sd_configs:
+          - role: service
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app]
+            regex: excel-addin
+            action: keep
+          - source_labels: [__meta_kubernetes_service_label_component]
+            target_label: component
+            action: replace
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+
+---
+# Prometheus Storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-storage
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: managed-premium
+  resources:
+    requests:
+      storage: 50Gi
