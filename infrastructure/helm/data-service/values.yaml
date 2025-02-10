@@ -1,0 +1,184 @@
+# Default values for data-service
+# This is a YAML-formatted file.
+
+# Number of replicas for the data service deployment
+replicaCount: 2
+
+# Container image configuration
+image:
+  repository: data-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Naming configuration
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account configuration for Azure workload identity
+serviceAccount:
+  create: true
+  annotations:
+    azure.workload.identity/client-id: ${AZURE_CLIENT_ID}
+  name: data-service-sa
+
+# Pod annotations for monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3000"
+  prometheus.io/path: "/metrics"
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+  protocol: TCP
+
+# Database configuration based on DATABASE_CONFIG
+database:
+  type: mssql
+  host: ${DB_HOST}
+  port: 1433
+  database: ${DB_NAME}
+  ssl: true
+  connectionTimeout: 30000
+  requestTimeout: 30000
+  pool:
+    min: 2
+    max: 10
+    idleTimeoutMillis: 30000
+    acquireTimeoutMillis: 30000
+    createTimeoutMillis: 30000
+  options:
+    encrypt: true
+    trustServerCertificate: false
+    enableArithAbort: true
+
+# Redis cache configuration based on RedisCache
+redis:
+  host: ${REDIS_HOST}
+  port: 6379
+  ssl: true
+  ttl: 300
+  maxMemory: "512mb"
+  cluster:
+    enabled: true
+    nodes: 3
+    replicas: 1
+    failover:
+      enabled: true
+      timeout: 180000
+  tls:
+    enabled: true
+    certificateSecretName: redis-cert
+  auth:
+    enabled: true
+    secretName: redis-auth
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Horizontal Pod Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+# Node selector configuration
+nodeSelector:
+  kubernetes.io/os: linux
+
+# Pod tolerations
+tolerations: []
+
+# Pod affinity rules
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - data-service
+          topologyKey: kubernetes.io/hostname
+
+# Environment variables
+env:
+  NODE_ENV: production
+  PORT: 3000
+  LOG_LEVEL: info
+  ENABLE_METRICS: "true"
+  ENABLE_TRACING: "true"
+
+# Health check probes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
