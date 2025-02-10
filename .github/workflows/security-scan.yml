@@ -1,0 +1,172 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18.x'
+  PYTHON_VERSION: '3.11'
+  SEVERITY_THRESHOLD: 'medium'
+
+jobs:
+  codeql_analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript', 'typescript', 'python' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  dependency_scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Setup Snyk
+        uses: snyk/actions/setup@v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Scan Node.js dependencies
+        run: |
+          cd src/backend/services/core
+          snyk test --severity-threshold=${{ env.SEVERITY_THRESHOLD }} --json > nodejs-vulnerabilities.json
+        continue-on-error: true
+
+      - name: Scan Python dependencies
+        run: |
+          cd src/backend/services/ai
+          snyk test --severity-threshold=${{ env.SEVERITY_THRESHOLD }} --json > python-vulnerabilities.json
+        continue-on-error: true
+
+      - name: Upload dependency scanning results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: '**/*-vulnerabilities.json'
+
+  container_scan:
+    name: Container Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run Trivy vulnerability scanner - AI Service
+        uses: aquasecurity/trivy-action@v0.10.0
+        with:
+          image-ref: 'excel-ai/ai-service:latest'
+          format: 'sarif'
+          output: 'trivy-ai-results.sarif'
+          severity: ${{ env.SEVERITY_THRESHOLD }},HIGH,CRITICAL
+
+      - name: Run Trivy vulnerability scanner - Core Service
+        uses: aquasecurity/trivy-action@v0.10.0
+        with:
+          image-ref: 'excel-ai/core-service:latest'
+          format: 'sarif'
+          output: 'trivy-core-results.sarif'
+          severity: ${{ env.SEVERITY_THRESHOLD }},HIGH,CRITICAL
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-*-results.sarif'
+
+  security_report:
+    name: Generate Security Report
+    needs: [codeql_analysis, dependency_scan, container_scan]
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      issues: write
+
+    steps:
+      - name: Download scan results
+        uses: actions/download-artifact@v3
+        with:
+          path: security-results
+
+      - name: Generate comprehensive report
+        run: |
+          echo "Security Scan Summary - $(date)" > security-report.md
+          echo "================================" >> security-report.md
+          echo "## CodeQL Analysis Results" >> security-report.md
+          cat security-results/**/codeql-results.sarif >> security-report.md
+          echo "## Dependency Scan Results" >> security-report.md
+          cat security-results/**/*-vulnerabilities.json >> security-report.md
+          echo "## Container Scan Results" >> security-report.md
+          cat security-results/**/trivy-*-results.sarif >> security-report.md
+
+      - name: Create GitHub Issue for Critical Vulnerabilities
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('security-report.md', 'utf8');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Critical Security Vulnerabilities Detected',
+              body: report,
+              labels: ['security', 'critical']
+            });
+
+      - name: Archive security report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-scan-results
+          path: |
+            security-report.md
+            security-results/**
