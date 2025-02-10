@@ -1,0 +1,114 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-service-config
+  namespace: ai-service
+  labels:
+    app: excel-addin
+    component: ai
+    version: v1
+    environment: ${ENV}
+data:
+  # AI Service Configuration
+  AI_SERVICE_PORT: "8000"
+  OPENAI_MODEL: "gpt-4"
+  OPENAI_MODEL_VERSION: "latest"
+  # Rate Limiting
+  RATE_LIMIT_PER_MIN: "100"
+  RATE_LIMIT_BURST: "150"
+  # Performance Settings
+  RESPONSE_TIMEOUT_MS: "2000"
+  MAX_TOKENS: "8000"
+  MEMORY_LIMIT_MB: "2048"
+  # Resilience Configuration
+  CIRCUIT_BREAKER_THRESHOLD: "0.5"
+  RETRY_ATTEMPTS: "3"
+  RETRY_DELAY_MS: "1000"
+  # Environment Settings
+  NODE_ENV: ${ENV}
+  LOG_LEVEL: "info"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: core-service-config
+  namespace: core-service
+  labels:
+    app: excel-addin
+    component: core
+    version: v1
+    environment: ${ENV}
+data:
+  # Core Service Configuration
+  CORE_SERVICE_PORT: "3000"
+  API_TIMEOUT_MS: "5000"
+  MAX_BATCH_SIZE: "50"
+  # Circuit Breaker Settings
+  CIRCUIT_BREAKER_THRESHOLD: "0.3"
+  CIRCUIT_BREAKER_RESET_TIME_MS: "30000"
+  # Connection Management
+  CONNECTION_TIMEOUT_MS: "3000"
+  IDLE_TIMEOUT_MS: "10000"
+  MAX_CONNECTIONS: "100"
+  KEEP_ALIVE_TIMEOUT_MS: "5000"
+  # Environment Settings
+  NODE_ENV: ${ENV}
+  LOG_LEVEL: "info"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-service-config
+  namespace: data-service
+  labels:
+    app: excel-addin
+    component: data
+    version: v1
+    environment: ${ENV}
+data:
+  # Data Service Configuration
+  DATA_SERVICE_PORT: "3001"
+  # Database Connection Settings
+  DB_CONNECTION_POOL_SIZE: "10"
+  DB_CONNECTION_TIMEOUT_MS: "5000"
+  DB_IDLE_TIMEOUT_MS: "10000"
+  DB_MAX_RETRIES: "3"
+  # Cache Configuration
+  CACHE_TTL_SECONDS: "300"
+  CACHE_CHECK_PERIOD_MS: "60000"
+  CACHE_MAX_SIZE_MB: "512"
+  # Performance Settings
+  BATCH_SIZE: "1000"
+  VALIDATION_TIMEOUT_MS: "2000"
+  # Environment Settings
+  NODE_ENV: ${ENV}
+  LOG_LEVEL: "info"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-service-config
+  namespace: gateway-service
+  labels:
+    app: excel-addin
+    component: gateway
+    version: v1
+    environment: ${ENV}
+data:
+  # Gateway Service Configuration
+  GATEWAY_SERVICE_PORT: "8080"
+  # Rate Limiting
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX_REQUESTS: "1000"
+  # Request Settings
+  MAX_REQUEST_SIZE: "5mb"
+  PROXY_TIMEOUT_MS: "10000"
+  # Security Settings
+  CORS_MAX_AGE: "86400"
+  SSL_ENABLED: "true"
+  # Performance Settings
+  COMPRESSION_LEVEL: "6"
+  # Environment Settings
+  NODE_ENV: ${ENV}
+  LOG_LEVEL: "info"
