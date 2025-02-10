@@ -1,0 +1,114 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base resources to be customized
+resources:
+  - ../../base
+  - ../../services/ai-service.yaml
+  - ../../services/core-service.yaml
+  - ../../services/data-service.yaml
+  - ../../services/gateway-service.yaml
+
+# Target namespace for all resources
+namespace: staging
+
+# Common labels for all resources
+commonLabels:
+  environment: staging
+  app: excel-addin
+  deployment.kubernetes.io/revision: "1"
+  rollout-strategy: blue-green
+
+# Resource patches for staging environment
+patches:
+  # AI Service customization for staging
+  - target:
+      kind: Deployment
+      name: ai-service
+    patch:
+      spec:
+        replicas: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 2
+            maxUnavailable: 0
+        template:
+          metadata:
+            annotations:
+              kubernetes.io/rollout-strategy: blue-green
+              rollback-timeout: "600"
+          spec:
+            containers:
+              - name: ai-service
+                resources:
+                  requests:
+                    cpu: "1"
+                    memory: "2Gi"
+                    nvidia.com/gpu: "1"
+                  limits:
+                    cpu: "2"
+                    memory: "4Gi"
+                    nvidia.com/gpu: "1"
+                readinessProbe:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+
+  # Core Service customization for staging
+  - target:
+      kind: Deployment
+      name: core-service
+    patch:
+      spec:
+        replicas: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 2
+            maxUnavailable: 0
+        template:
+          metadata:
+            annotations:
+              kubernetes.io/rollout-strategy: blue-green
+              rollback-timeout: "600"
+          spec:
+            containers:
+              - name: core-service
+                resources:
+                  requests:
+                    cpu: "500m"
+                    memory: "1Gi"
+                  limits:
+                    cpu: "1"
+                    memory: "2Gi"
+                readinessProbe:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+
+# ConfigMap generation for staging environment
+configMapGenerator:
+  - name: staging-config
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=info
+      - ENABLE_MONITORING=true
+      - ENABLE_TRACING=true
+      - DEPLOYMENT_STRATEGY=blue-green
+      - ROLLBACK_TIMEOUT=600
+
+# Image tag customization for staging
+images:
+  - name: ai-service
+    newTag: staging
+  - name: core-service
+    newTag: staging
+  - name: data-service
+    newTag: staging
+  - name: gateway-service
+    newTag: staging
