@@ -1,0 +1,218 @@
+---
+# AI Service Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-service-role
+  namespace: ai-service
+  labels:
+    app: excel-addin
+    component: ai
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Core Service Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: core-service-role
+  namespace: core-service
+  labels:
+    app: excel-addin
+    component: core
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Data Service Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: data-service-role
+  namespace: data-service
+  labels:
+    app: excel-addin
+    component: data
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Gateway Service Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway-service-role
+  namespace: gateway-service
+  labels:
+    app: excel-addin
+    component: gateway
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Monitoring Cluster Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-cluster-role
+  labels:
+    app: excel-addin
+    component: monitoring
+    environment: ${ENV}
+    security-tier: system
+    managed-by: kubernetes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "nodes", "namespaces", "events", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+
+---
+# AI Service Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-service-binding
+  namespace: ai-service
+  labels:
+    app: excel-addin
+    component: ai
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+subjects:
+  - kind: ServiceAccount
+    name: ai-service-account
+    namespace: ai-service
+roleRef:
+  kind: Role
+  name: ai-service-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Core Service Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: core-service-binding
+  namespace: core-service
+  labels:
+    app: excel-addin
+    component: core
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+subjects:
+  - kind: ServiceAccount
+    name: core-service-account
+    namespace: core-service
+roleRef:
+  kind: Role
+  name: core-service-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Data Service Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: data-service-binding
+  namespace: data-service
+  labels:
+    app: excel-addin
+    component: data
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+subjects:
+  - kind: ServiceAccount
+    name: data-service-account
+    namespace: data-service
+roleRef:
+  kind: Role
+  name: data-service-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Gateway Service Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-service-binding
+  namespace: gateway-service
+  labels:
+    app: excel-addin
+    component: gateway
+    environment: ${ENV}
+    security-tier: restricted
+    managed-by: kubernetes
+subjects:
+  - kind: ServiceAccount
+    name: gateway-service-account
+    namespace: gateway-service
+roleRef:
+  kind: Role
+  name: gateway-service-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Monitoring Cluster Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-cluster-binding
+  labels:
+    app: excel-addin
+    component: monitoring
+    environment: ${ENV}
+    security-tier: system
+    managed-by: kubernetes
+subjects:
+  - kind: ServiceAccount
+    name: monitoring-service-account
+    namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: monitoring-cluster-role
+  apiGroup: rbac.authorization.k8s.io
