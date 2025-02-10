@@ -1,0 +1,137 @@
+---
+# AI Service Monitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ai-service-monitor
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: ai-service
+    criticality: high
+    security-tier: restricted
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9090'
+spec:
+  selector:
+    matchLabels:
+      app: excel-addin
+      service: ai-service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: false
+        certFile: /etc/prometheus/secrets/metrics-cert
+        keyFile: /etc/prometheus/secrets/metrics-key
+        caFile: /etc/prometheus/secrets/metrics-ca
+      bearerTokenFile: /etc/prometheus/secrets/bearer-token
+      metricRelabelings:
+        - sourceLabels: ['__name__']
+          regex: 'formula_generation_latency|memory_usage|api_success_rate|gpu_utilization|model_inference_time|error_rate|request_queue_length'
+          action: keep
+      relabelings:
+        - sourceLabels: ['__meta_kubernetes_pod_node_name']
+          targetLabel: node
+          action: replace
+    - port: http
+      path: /health
+      interval: 30s
+      scrapeTimeout: 5s
+
+---
+# Core Service Monitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: core-service-monitor
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: core-service
+    criticality: high
+    security-tier: restricted
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9090'
+spec:
+  selector:
+    matchLabels:
+      app: excel-addin
+      service: core-service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: false
+        certFile: /etc/prometheus/secrets/metrics-cert
+        keyFile: /etc/prometheus/secrets/metrics-key
+        caFile: /etc/prometheus/secrets/metrics-ca
+      bearerTokenFile: /etc/prometheus/secrets/bearer-token
+      metricRelabelings:
+        - sourceLabels: ['__name__']
+          regex: 'api_response_time|request_rate|error_rate|active_users|concurrent_sessions|memory_usage|cpu_usage'
+          action: keep
+      relabelings:
+        - sourceLabels: ['__meta_kubernetes_pod_node_name']
+          targetLabel: node
+          action: replace
+    - port: http
+      path: /health
+      interval: 30s
+      scrapeTimeout: 5s
+
+---
+# Data Service Monitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: data-service-monitor
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: data-service
+    criticality: high
+    security-tier: restricted
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9090'
+spec:
+  selector:
+    matchLabels:
+      app: excel-addin
+      service: data-service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: false
+        certFile: /etc/prometheus/secrets/metrics-cert
+        keyFile: /etc/prometheus/secrets/metrics-key
+        caFile: /etc/prometheus/secrets/metrics-ca
+      bearerTokenFile: /etc/prometheus/secrets/bearer-token
+      metricRelabelings:
+        - sourceLabels: ['__name__']
+          regex: 'database_query_time|cache_hit_rate|connection_pool_status|transaction_rate|storage_usage|replication_lag|error_rate'
+          action: keep
+      relabelings:
+        - sourceLabels: ['__meta_kubernetes_pod_node_name']
+          targetLabel: node
+          action: replace
+    - port: http
+      path: /health
+      interval: 30s
+      scrapeTimeout: 5s
