@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp 
+    xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+    xsi:type="TaskPaneApp"
+    DefaultLocale="en-US">
+
+    <!-- Basic Add-in Metadata -->
+    <Id>00000000-0000-0000-0000-000000000000</Id>
+    <Version>1.0.0</Version>
+    <ProviderName>AI Excel Assistant</ProviderName>
+    <DefaultLocale>en-US</DefaultLocale>
+
+    <!-- Display Information -->
+    <DisplayName DefaultValue="AI Excel Assistant" />
+    <Description DefaultValue="AI-enhanced Excel Add-in that provides intelligent formula suggestions, data cleaning, and version control capabilities" />
+
+    <!-- Icon Settings -->
+    <IconUrl DefaultValue="assets/icons/icon-80.png" />
+    <HighResolutionIconUrl DefaultValue="assets/icons/icon-80.png" />
+    <Icons>
+        <Icon>
+            <Size>16</Size>
+            <Path>assets/icons/icon-16.png</Path>
+        </Icon>
+        <Icon>
+            <Size>32</Size>
+            <Path>assets/icons/icon-32.png</Path>
+        </Icon>
+        <Icon>
+            <Size>64</Size>
+            <Path>assets/icons/icon-64.png</Path>
+        </Icon>
+        <Icon>
+            <Size>80</Size>
+            <Path>assets/icons/icon-80.png</Path>
+        </Icon>
+    </Icons>
+
+    <!-- Capabilities -->
+    <Capabilities>
+        <Capability Name="ReadWriteDocument" />
+        <Capability Name="Workbook" />
+        <Capability Name="File" />
+        <Capability Name="Selection" />
+    </Capabilities>
+
+    <!-- Default Settings -->
+    <DefaultSettings>
+        <SourceLocation DefaultValue="https://${HOST_URL}/index.html" />
+        <RequestedWidth>350</RequestedWidth>
+        <RequestedHeight>100%</RequestedHeight>
+    </DefaultSettings>
+
+    <!-- Host Settings -->
+    <Hosts>
+        <Host Name="Workbook" Platform="PC">
+            <Requirements>
+                <Sets>
+                    <Set Name="ExcelApi" MinVersion="1.1" />
+                </Sets>
+            </Requirements>
+            <DesktopFormFactor>
+                <GetStarted>
+                    <Title>AI Excel Assistant</Title>
+                    <Description>Start using AI-powered Excel assistance</Description>
+                    <LearnMoreUrl>https://${HOST_URL}/help</LearnMoreUrl>
+                </GetStarted>
+                <FunctionFile resid="functionFile" />
+                <ExtensionPoint xsi:type="PrimaryCommandSurface">
+                    <CustomTab id="AIExcelAssistant.Tab">
+                        <Group id="AIExcelAssistant.Group">
+                            <Label resid="groupLabel" />
+                            <Control xsi:type="Button" id="AIExcelAssistant.TaskpaneButton">
+                                <Label resid="taskpaneButtonLabel" />
+                                <Supertip>
+                                    <Title resid="taskpaneButtonTitle" />
+                                    <Description resid="taskpaneButtonDesc" />
+                                </Supertip>
+                                <Icon>
+                                    <bt:Image size="16" resid="icon16" />
+                                    <bt:Image size="32" resid="icon32" />
+                                    <bt:Image size="80" resid="icon80" />
+                                </Icon>
+                                <Action xsi:type="ShowTaskpane">
+                                    <TaskpaneId>AIExcelAssistant.Taskpane</TaskpaneId>
+                                    <SourceLocation resid="taskpaneUrl" />
+                                </Action>
+                            </Control>
+                        </Group>
+                    </CustomTab>
+                </ExtensionPoint>
+            </DesktopFormFactor>
+        </Host>
+        <Host Name="Workbook" Platform="MAC">
+            <Requirements>
+                <Sets>
+                    <Set Name="ExcelApi" MinVersion="1.1" />
+                </Sets>
+            </Requirements>
+            <DesktopFormFactor>
+                <GetStarted>
+                    <Title>AI Excel Assistant</Title>
+                    <Description>Start using AI-powered Excel assistance</Description>
+                    <LearnMoreUrl>https://${HOST_URL}/help</LearnMoreUrl>
+                </GetStarted>
+                <FunctionFile resid="functionFile" />
+                <ExtensionPoint xsi:type="PrimaryCommandSurface">
+                    <CustomTab id="AIExcelAssistant.Tab">
+                        <Group id="AIExcelAssistant.Group">
+                            <Label resid="groupLabel" />
+                            <Control xsi:type="Button" id="AIExcelAssistant.TaskpaneButton">
+                                <Label resid="taskpaneButtonLabel" />
+                                <Supertip>
+                                    <Title resid="taskpaneButtonTitle" />
+                                    <Description resid="taskpaneButtonDesc" />
+                                </Supertip>
+                                <Icon>
+                                    <bt:Image size="16" resid="icon16" />
+                                    <bt:Image size="32" resid="icon32" />
+                                    <bt:Image size="80" resid="icon80" />
+                                </Icon>
+                                <Action xsi:type="ShowTaskpane">
+                                    <TaskpaneId>AIExcelAssistant.Taskpane</TaskpaneId>
+                                    <SourceLocation resid="taskpaneUrl" />
+                                </Action>
+                            </Control>
+                        </Group>
+                    </CustomTab>
+                </ExtensionPoint>
+            </DesktopFormFactor>
+        </Host>
+    </Hosts>
+
+    <!-- Resources -->
+    <Resources>
+        <bt:Images>
+            <bt:Image id="icon16" DefaultValue="assets/icons/icon-16.png" />
+            <bt:Image id="icon32" DefaultValue="assets/icons/icon-32.png" />
+            <bt:Image id="icon80" DefaultValue="assets/icons/icon-80.png" />
+        </bt:Images>
+        <bt:Urls>
+            <bt:Url id="functionFile" DefaultValue="https://${HOST_URL}/function-file.html" />
+            <bt:Url id="taskpaneUrl" DefaultValue="https://${HOST_URL}/index.html" />
+        </bt:Urls>
+        <bt:ShortStrings>
+            <bt:String id="groupLabel" DefaultValue="AI Excel Assistant" />
+            <bt:String id="taskpaneButtonLabel" DefaultValue="Open Assistant" />
+            <bt:String id="taskpaneButtonTitle" DefaultValue="AI Excel Assistant" />
+        </bt:ShortStrings>
+        <bt:LongStrings>
+            <bt:String id="taskpaneButtonDesc" DefaultValue="Open the AI Excel Assistant to get intelligent formula suggestions and data management capabilities" />
+        </bt:LongStrings>
+    </Resources>
+
+    <!-- WebApplicationInfo for SSO -->
+    <WebApplicationInfo>
+        <Id>${AAD_APP_ID}</Id>
+        <Resource>api://${HOST_URL}/${AAD_APP_ID}</Resource>
+        <Scopes>
+            <Scope>User.Read</Scope>
+            <Scope>profile</Scope>
+        </Scopes>
+    </WebApplicationInfo>
+
+    <!-- Authorized Domains -->
+    <AppDomains>
+        <AppDomain>https://${HOST_URL}</AppDomain>
+        <AppDomain>https://appsforoffice.microsoft.com</AppDomain>
+        <AppDomain>https://static2.sharepointonline.com</AppDomain>
+    </AppDomains>
+</OfficeApp>
