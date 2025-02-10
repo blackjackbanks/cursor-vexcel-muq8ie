@@ -1,0 +1,64 @@
+apiVersion: v2
+name: data-service
+description: Enterprise-grade data management and persistence service for AI-enhanced Excel Add-in with multi-region support, high availability, and automated scaling
+
+# Chart version - follows semantic versioning
+version: 1.0.0
+
+# Application version - matches service version
+appVersion: "1.0.0"
+
+# Chart type
+type: application
+
+# Keywords for chart discovery and categorization
+keywords:
+  - data-service
+  - excel-addin
+  - persistence
+  - caching
+  - high-availability
+  - geo-replication
+  - kubernetes
+
+# Maintainer information
+maintainers:
+  - name: Excel AI Team
+    email: excel-ai-team@company.com
+
+# Dependencies required by the data service
+dependencies:
+  # Redis cache for performance optimization
+  - name: redis
+    version: "17.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+    tags:
+      - cache
+      - performance
+
+  # PostgreSQL database for persistent storage
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+    tags:
+      - database
+      - persistence
+
+# Chart annotations
+annotations:
+  category: Database
+  licenses: Apache-2.0
+  support: Enterprise
+
+# Chart home and documentation
+home: https://github.com/company/excel-addin
+sources:
+  - https://github.com/company/excel-addin/tree/main/infrastructure/helm/data-service
+
+# Minimum Kubernetes version required
+kubeVersion: ">=1.25.0-0"
+
+# Icon for the chart (optional)
+icon: https://company.com/icons/data-service.png
