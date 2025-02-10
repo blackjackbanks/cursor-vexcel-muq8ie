@@ -1,0 +1,58 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: excel-addin-cert
+  namespace: excel-addin
+  labels:
+    app: excel-addin
+    component: ingress
+    managed-by: cert-manager
+  annotations:
+    cert-manager.io/issue-temporary-certificate: "true"
+    cert-manager.io/common-name: "api.exceladdin.com"
+
+spec:
+  # Secret to store the certificate
+  secretName: excel-addin-tls
+  
+  # Certificate duration (90 days)
+  duration: "2160h"
+  
+  # Pre-renewal window (15 days)
+  renewBefore: "360h"
+  
+  # Certificate subject details
+  subject:
+    organizations:
+      - Excel Add-in
+    organizationalUnits:
+      - Security
+    countries:
+      - US
+    localities:
+      - Production
+    provinces:
+      - Cloud
+  
+  # Private key configuration
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  
+  # DNS names for the certificate
+  dnsNames:
+    - api.exceladdin.com
+  
+  # Certificate usages
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  
+  # Certificate issuer reference
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
