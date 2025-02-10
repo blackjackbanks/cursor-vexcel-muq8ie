@@ -1,0 +1,231 @@
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    service: grafana
+    version: 9.5.2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      serviceAccountName: monitoring-service-account
+      securityContext:
+        fsGroup: 472
+        runAsNonRoot: true
+      containers:
+        - name: grafana
+          image: grafana/grafana:9.5.2
+          ports:
+            - containerPort: 3000
+              name: http
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            runAsUser: 472
+            runAsGroup: 472
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: config
+              mountPath: /etc/grafana
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+            - name: storage
+              mountPath: /var/lib/grafana
+              subPath: data
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: grafana-config
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+        - name: storage
+          persistentVolumeClaim:
+            claimName: grafana-storage
+
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+    service: grafana
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: grafana
+
+---
+# Grafana Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+data:
+  grafana.ini: |
+    [server]
+    http_port = 3000
+    domain = grafana.excel-addin.com
+    root_url = https://grafana.excel-addin.com
+
+    [security]
+    admin_user = admin
+    admin_password = ${GRAFANA_ADMIN_PASSWORD}
+    disable_initial_admin_creation = false
+    cookie_secure = true
+    cookie_samesite = strict
+
+    [auth.azuread]
+    enabled = true
+    allow_sign_up = true
+    client_id = ${AZURE_CLIENT_ID}
+    client_secret = ${AZURE_CLIENT_SECRET}
+    scopes = openid email profile
+    auth_url = https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize
+    token_url = https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+
+    [users]
+    auto_assign_org_role = Editor
+
+    [dashboards]
+    default_home_dashboard_path = /var/lib/grafana/dashboards/ai-service-dashboard.json
+
+    [alerting]
+    enabled = true
+    execute_alerts = true
+    evaluation_timeout_seconds = 30
+
+---
+# Grafana Dashboards
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+  labels:
+    app: excel-addin
+    component: monitoring
+data:
+  ai-service-dashboard.json: |
+    {
+      "title": "AI Service Metrics",
+      "refresh": "10s",
+      "panels": [
+        {
+          "title": "Formula Generation Latency",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {"expr": "formula_generation_latency_seconds"},
+            {"expr": "formula_generation_errors_total"},
+            {"expr": "formula_generation_success_rate"}
+          ]
+        },
+        {
+          "title": "Memory Usage",
+          "type": "gauge",
+          "datasource": "Prometheus",
+          "targets": [
+            {"expr": "process_resident_memory_bytes"},
+            {"expr": "process_heap_bytes"},
+            {"expr": "memory_usage_percentage"}
+          ]
+        },
+        {
+          "title": "API Success Rate",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {"expr": "http_requests_total"},
+            {"expr": "http_request_duration_seconds"},
+            {"expr": "http_errors_total"}
+          ]
+        }
+      ]
+    }
+  security-dashboard.json: |
+    {
+      "title": "Security Metrics",
+      "refresh": "30s",
+      "panels": [
+        {
+          "title": "Authentication Events",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {"expr": "auth_failures_total"},
+            {"expr": "auth_success_total"},
+            {"expr": "token_validation_errors"}
+          ]
+        },
+        {
+          "title": "API Security",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {"expr": "rate_limit_hits"},
+            {"expr": "suspicious_requests_total"},
+            {"expr": "jwt_validation_errors"}
+          ]
+        }
+      ]
+    }
+
+---
+# Grafana Storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: managed-premium
+  resources:
+    requests:
+      storage: 10Gi
