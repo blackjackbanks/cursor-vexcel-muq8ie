@@ -1,0 +1,39 @@
+apiVersion: v2
+name: core-service
+version: 1.0.0
+appVersion: 1.0.0
+description: A Helm chart for deploying the Core Service component of the AI-enhanced Excel Add-in, providing scalable Node.js Express service with AI processing capabilities
+type: application
+keywords:
+  - excel
+  - ai
+  - core-service
+  - node
+  - express
+  - microservice
+  - kubernetes
+
+maintainers:
+  - name: Excel AI Team
+    email: excel-ai-team@company.com
+
+# Helm chart dependencies
+dependencies:
+  - name: common
+    version: 1.x.x
+    repository: file://../common
+    condition: common.enabled
+
+# Helm version requirement
+engine: ">=3.0.0"
+
+# Kubernetes version requirement
+kubeVersion: ">=1.25.0"
+
+# Additional metadata annotations
+annotations:
+  artifacthub.io/changes: |
+    - Initial release of Core Service chart
+    - Added common chart dependency
+    - Configured for AKS deployment
+  artifacthub.io/license: MIT
